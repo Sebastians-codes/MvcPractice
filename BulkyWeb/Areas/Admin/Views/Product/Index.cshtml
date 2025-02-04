@@ -1,0 +1,49 @@
+﻿@model List<Bulky.Domain.Models.Product>
+<div class="container">
+    <div class="row pt-4 pb-2">
+        <div class="col-6">
+            <h1 class="text-primary">Product List</h1>
+        </div>
+        <div class="col-6 text-end">
+            <a asp-controller="Product" asp-action="Create" class="btn btn-primary">
+                Create Product <i class="bi bi-plus-lg"></i>
+            </a>
+        </div>
+    </div>
+    <table class="table table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Title</th>
+            <th>Author</th>
+            <th>List Price</th>
+            <th>Price 1-50</th>
+            <th>Price 50+</th>
+            <th>Price 100+</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var product in Model.OrderBy(x => x.Title))
+        {
+            <tr>
+                <td>@product.Title</td>
+                <td>@product.Author</td>
+                <td>@product.ListPrice</td>
+                <td>@product.Price</td>
+                <td>@product.Price50</td>
+                <td>@product.Price100</td>
+                <td>
+                    <div class="w-100 btn-group" role="group">
+                        <a asp-controller="Product" asp-route-id="@product.Id" asp-action="Edit" class="btn btn-primary mx-2">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <a asp-controller="Product" asp-route-id="@product.Id" asp-action="Delete" class="btn btn-secondary mx-2">
+                            <i class="bi bi-x-lg"></i> Delete
+                        </a>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

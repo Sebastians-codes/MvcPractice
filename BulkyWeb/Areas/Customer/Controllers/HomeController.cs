@@ -1,9 +1,10 @@
 using System.Diagnostics;
+using Bulky.Domain.Models;
 using Microsoft.AspNetCore.Mvc;
-using BulkyWeb.Models;
 
-namespace BulkyWeb.Controllers;
+namespace BulkyWeb.Areas.Customer.Controllers;
 
+[Area("Customer")]
 public class HomeController(ILogger<HomeController> logger) : Controller
 {
     public IActionResult Index() => View();
