@@ -1,58 +1,97 @@
 ﻿using Bulky.Data.Repository.IRepository;
 using Bulky.Domain.Models;
+using Bulky.Domain.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace BulkyWeb.Areas.Admin.Controllers;
 
 [Area("Admin")]
-public class ProductController(IUnitOfWork unitOfWork) : Controller
+public class ProductController(IUnitOfWork unitOfWork, IWebHostEnvironment webHostEnvironment) : Controller
 {
-    public async Task<IActionResult> Index() =>
-        View(await unitOfWork.Product.GetAllAsync() as List<Product>);
+    public async Task<IActionResult> Index()
+    {
+        var products = await unitOfWork.Product.GetAllAsync(includeProperties: "Category");
 
-    public IActionResult Create() => View();
+        return View(products);
+    }
+
+    public async Task<IActionResult> Upsert(int? id)
+    {
+        var categories = await unitOfWork.Category.GetAllAsync();
+
+        if (id is null or 0)
+        {
+            var product = new ProductVM
+            {
+                Product = new Product(),
+                Categories = categories.Select(x => new SelectListItem
+                {
+                    Text = x.Name,
+                    Value = x.Id.ToString()
+                })
+            };
+
+            return View(product);
+        }
+
+        var oldProduct = new ProductVM
+        {
+            Product = await unitOfWork.Product.Get(x => x.Id == id),
+            Categories = categories.Select(x => new SelectListItem
+            {
+                Text = x.Name,
+                Value = x.Id.ToString()
+            })
+        };
+
+        return View(oldProduct);
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(Product product)
+    public async Task<IActionResult> Upsert(ProductVM productVm, IFormFile? file)
     {
-        if (char.IsLower(product.Title[0]))
-            product.Title = $"{char.ToUpper(product.Title[0])}{product.Title[1..]}";
+        if (char.IsLower(productVm.Product.Title[0]))
+            productVm.Product.Title = $"{char.ToUpper(productVm.Product.Title[0])}{productVm.Product.Title[1..]}";
 
-        if (product.ListPrice is > 1000 or < 1)
-            ModelState.AddModelError(nameof(product.ListPrice), "List Price must be between 1 and 1000");
+        if (productVm.Product.ListPrice is > 1000 or < 1)
+            ModelState.AddModelError(nameof(productVm.Product.ListPrice), "List Price must be between 1 and 1000");
 
         if (!ModelState.IsValid) return View();
 
-        await unitOfWork.Product.AddAsync(product);
+        if (file is not null)
+            await HandleProductImage(productVm, file);
+
+        if (productVm.Product.Id == 0)
+            await unitOfWork.Product.AddAsync(productVm.Product);
+        else
+            unitOfWork.Product.Update(productVm.Product);
+
         await unitOfWork.SaveAsync();
         TempData["success"] = "Product created successfully";
+
         return RedirectToAction("Index");
     }
 
-    public async Task<IActionResult> Edit(int? id)
+    private async Task HandleProductImage(ProductVM productVm, IFormFile file)
     {
-        if (id is null or 0)
-            return NotFound();
+        var wwwRootPath = webHostEnvironment.WebRootPath;
+        var fileName = Guid.NewGuid() + Path.GetExtension(file.FileName);
+        var productPath = Path.Combine(wwwRootPath, @"images\product");
 
-        var category = await unitOfWork.Product.Get(x => x.Id == id);
+        if (!string.IsNullOrWhiteSpace(productVm.Product.ImageUrl))
+        {
+            var oldImagePath = Path.Combine(wwwRootPath, productVm.Product.ImageUrl.TrimStart('\\'));
 
-        if (category is null)
-            return NotFound();
+            if (System.IO.File.Exists(oldImagePath))
+                System.IO.File.Delete(oldImagePath);
+        }
 
-        return View(category);
-    }
+        await using var fileStream = new FileStream(Path.Combine(productPath, fileName), FileMode.Create);
+        await file.CopyToAsync(fileStream);
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(Product product)
-    {
-        if (!ModelState.IsValid) return View();
-
-        unitOfWork.Product.Update(product);
-        await unitOfWork.SaveAsync();
-        TempData["success"] = "Product updated successfully";
-        return RedirectToAction("Index");
+        productVm.Product.ImageUrl = @"\images\product\" + fileName;
     }
 
     public async Task<IActionResult> Delete(int? id)
@@ -81,6 +120,7 @@ public class ProductController(IUnitOfWork unitOfWork) : Controller
         unitOfWork.Product.Remove(product);
         await unitOfWork.SaveAsync();
         TempData["success"] = "Product deleted successfully";
+
         return RedirectToAction("Index");
     }
 }

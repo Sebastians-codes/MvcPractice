@@ -8,6 +8,22 @@ namespace Bulky.Data.Repository;
 
 public class ProductRepository(ApplicationDbContext context) : Repository<Product>(context), IProductRepository
 {
-    public void Update(Product product) =>
-        context.Products.Update(product);
+    public async void Update(Product product)
+    {
+        var objFromDb = await context.FindAsync<Product>(product.Id);
+
+        if (objFromDb is null) return;
+        objFromDb.Title = product.Title;
+        objFromDb.Description = product.Description;
+        objFromDb.Price = product.Price;
+        objFromDb.Category = product.Category;
+        objFromDb.Author = product.Author;
+        objFromDb.Price50 = product.Price50;
+        objFromDb.Price100 = product.Price100;
+        objFromDb.ListPrice = product.ListPrice;
+        objFromDb.ISBN = product.ISBN;
+        objFromDb.CategoryId = product.CategoryId;
+        if (product.ImageUrl is not null)
+            objFromDb.ImageUrl = product.ImageUrl;
+    }
 }

@@ -10,11 +10,25 @@ public class Repository<T>(ApplicationDbContext context) : IRepository<T> where 
 {
     private readonly DbSet<T>? _dbSet = context?.Set<T>();
 
-    public async Task<IEnumerable<T>> GetAllAsync() =>
-        await _dbSet.AsQueryable().ToListAsync();
+    public async Task<IEnumerable<T>> GetAllAsync(string? includeProperties = null)
+    {
+        var items = _dbSet.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(includeProperties))
+            items = includeProperties.Split(",", StringSplitOptions.RemoveEmptyEntries).Aggregate(items,
+                (current, includeProperty) => current.Include(includeProperty));
 
-    public async Task<T> Get(Expression<Func<T, bool>> predicate) =>
-        await _dbSet.AsQueryable().FirstOrDefaultAsync(predicate);
+        return await items.ToListAsync();
+    }
+
+    public async Task<T> Get(Expression<Func<T, bool>> predicate, string? includeProperties = null)
+    {
+        var items = _dbSet.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(includeProperties))
+            items = includeProperties.Split(",", StringSplitOptions.RemoveEmptyEntries).Aggregate(items,
+                (current, includeProperty) => current.Include(includeProperty));
+
+        return await items.FirstOrDefaultAsync(predicate);
+    }
 
     public async Task<EntityEntry<T>> AddAsync(T entity) =>
         await _dbSet.AddAsync(entity);
